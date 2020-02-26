@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>d3 implementation</title>
+    <style>
+
+svg {
+  font: 10px sans-serif;
+  padding: 10px;
+}
+
+.axis,
+.frame {
+  shape-rendering: crispEdges;
+}
+
+.axis line {
+  stroke: #ddd;
+}
+
+.axis path {
+  display: none;
+}
+
+.cell text {
+  font-weight: bold;
+  text-transform: capitalize;
+  fill: black;
+}
+
+.frame {
+  fill: none;
+  stroke: #aaa;
+}
+
+circle {
+  fill-opacity: .7;
+}
+
+circle.hidden {
+  fill: #ccc !important;
+}
+
+.extent {
+  fill: #000;
+  fill-opacity: .125;
+  stroke: #fff;
+}
+body{
+  max-width: 80%;
+  margin: auto
+}
+
+</style>
+  </head>
+  <body>
+    <link href="https://fonts.googleapis.com/css?family=Galada&display=swap" rel="stylesheet">
+    <h1 style="font-family: 'Galada', cursive;">Parent income vs kids income in CA</h1>
+    <br>
+    <br>
+
+    <svg></svg>
+    <script src="http://d3js.org/d3.v4.min.js"></script>
+
+    <script>
+
+    let width = 960,
+        size = 230,
+        padding = 20;
+
+    let x = d3.scaleLinear()
+        .range([padding / 2, size - padding / 2]);
+
+    let y = d3.scaleLinear()
+        .range([size - padding / 2, padding / 2]);
+
+    let xAxis = d3.axisBottom()
+        .scale(x)
+        .ticks(4);
+
+    let yAxis = d3.axisLeft()
+        .scale(y)
+        .ticks(4);
+
+    let color = d3.scaleOrdinal(d3.schemeCategory10);
+
+    d3.tsv("new.csv", function(error, data) {
+      if (error) throw error;
+
+      console.log(data)
+
+      // let filterdate = data.filter(function(d){return d!})
+
+      let domainByTrait = {},
+          domainByTraitX ={},
+          domainByTraitY ={},
+          traits = d3.keys(data[0]).filter(function(d) { return d !== "Name" && d!=="Tier"; }),
+          n = 5;
+
+          console.log("traits");
+          console.log(traits);
+          let traitsX = d3.keys(data[0]).filter(function(d) { return d == "Par Q1" || d =="Par Q2" || d =="Par Q3" || d =="Par Q4" || d =="Par Q5"; });
+          //d == "Sum of K Q1" || d =="Sum of K Q2" || d=="Sum of K Q3" || d=="Sum of K Q4" || d=="Sum of K Q5"
+          console.log("traitsX");
+          console.log(traitsX);
+          //d == "Par Q1" || d =="Par Q2" || d =="Par Q3" || d =="Par Q4" || d =="Par Q5"
+          let traitsY = d3.keys(data[0]).filter(function(d) { return d == "Sum of K Q1" || d =="Sum of K Q2" || d=="Sum of K Q3" || d=="Sum of K Q4" || d=="Sum of K Q5"  ; });
+          console.log("traitsY");
+          console.log(traitsY);
+
+
+          traitsX.forEach(function(trait) {
+            domainByTraitX[trait] = d3.extent(data, function(d) { return d[trait]; });
+          });
+          traitsY.forEach(function(trait) {
+            domainByTraitY[trait] = d3.extent(data, function(d) { return d[trait]; });
+          });
+
+          console.log(domainByTraitX);
+          console.log(domainByTraitY);
+
+      traits.forEach(function(trait) {
+        domainByTrait[trait] = d3.extent(data, function(d) { return d[trait]; });
+      });
+
+        console.log(domainByTrait);
+
+      xAxis.tickSize(size * n);
+      yAxis.tickSize(-size * n);
+
+      let brush = d3.brush()
+          .on("start", brushstart)
+          .on("brush", brushmove)
+          .on("end", brushend)
+          .extent([[0,0],[size,size]]);
+
+      let svg = d3.select("svg")
+          .attr("width", size * n + padding)
+          .attr("height", size * n + padding)
+        .append("g")
+          .attr("transform", "translate(" + padding + "," + padding / 2 + ")");
+
+      svg.selectAll(".x.axis")
+          .data(traitsX)
+        .enter().append("g")
+          .attr("class", "x axis")
+          .attr("transform", function(d, i) { return "translate(" + (n - i - 1) * size + ",0)"; })
+          .each(function(d) { x.domain(domainByTraitX[d]); d3.select(this).call(xAxis); });
+
+      svg.selectAll(".y.axis")
+          .data(traitsY)
+        .enter().append("g")
+          .attr("class", "y axis")
+          .attr("transform", function(d, i) { return "translate(0," + i * size + ")"; })
+          .each(function(d) { y.domain(domainByTraitY[d]); d3.select(this).call(yAxis); });
+
+      let cell = svg.selectAll(".cell")
+          .data(cross(traitsX, traitsY))
+        .enter().append("g")
+          .attr("class", "cell")
+          .attr("transform", function(d) { return "translate(" + (n - d.i - 1) * size + "," + d.j * size + ")"; })
+          .each(plot);
+
+      // Titles for the diagonal.
+      cell.filter(function(d) { return d.j===0; }).append("text")
+          .attr("x", padding)
+          .attr("y", -padding)
+          .attr("dy", ".71em")
+          .text(function(d) { return d.x; });
+
+      cell.filter(function(d) { return  d.i===0; }).append("text")
+          .attr("x", padding+130)
+          .attr("y", padding)
+          .attr("dy", ".71em")
+          .text(function(d) { return d.y; });
+
+      cell.call(brush);
+
+      var legend = svg.selectAll(".legend")
+                  .data(color.domain())
+                  .enter().append("g")
+                  .attr("class", "legend")
+                  .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+          legend.append("text")
+              .attr("x", width - 100)
+              .attr("y", 30)
+              .attr("dy", ".35em")
+              .style("text-anchor", "end")
+              .text(function(d) { return d.Tier; });
+
+      function plot(p) {
+        let cell = d3.select(this);
+
+        x.domain(domainByTrait[p.x]);
+        y.domain(domainByTrait[p.y]);
+
+        cell.append("rect")
+            .attr("class", "frame")
+            .attr("x", padding / 2)
+            .attr("y", padding / 2)
+            .attr("width", size - padding)
+            .attr("height", size - padding);
+
+        cell.selectAll("circle")
+            .data(data)
+          .enter().append("circle")
+            .attr("cx", function(d) { return x(d[p.x]); })
+            .attr("cy", function(d) { return y(d[p.y]); })
+            .attr("r", 4)
+            .style("fill", function(d) { return color(d.Tier); });
+      }
+
+      let brushCell;
+
+      // Clear the previously-active brush, if any.
+      function brushstart(p) {
+        if (brushCell !== this) {
+          d3.select(brushCell).call(brush.move, null);
+          brushCell = this;
+        x.domain(domainByTrait[p.x]);
+        y.domain(domainByTrait[p.y]);
+        }
+      }
+
+      // Highlight the selected circles.
+      function brushmove(p) {
+        let e = d3.brushSelection(this);
+        svg.selectAll("circle").classed("hidden", function(d) {
+          return !e
+            ? false
+            : (
+              e[0][0] > x(+d[p.x]) || x(+d[p.x]) > e[1][0]
+              || e[0][1] > y(+d[p.y]) || y(+d[p.y]) > e[1][1]
+            );
+        });
+      }
+
+      // If the brush is empty, select all circles.
+      function brushend() {
+        let e = d3.brushSelection(this);
+        if (e === null) svg.selectAll(".hidden").classed("hidden", false);
+      }
+    });
+
+    function cross(a, b) {
+      let c = [], n = a.length, m = b.length, i, j;
+      for (i = -1; ++i < n;) for (j = -1; ++j < m;) c.push({x: a[i], i: i, y: b[j], j: j});
+      return c;
+    }
+
+    </script>
+    <h4>Description of income of parent vs kids in California.</h4>
+    <ul>
+      <li>
+        <h5>Measures</h5>
+        <p>    Rows:
+            K Q1, K Q2, K Q3, K Q4, K Q5
+            Columns:
+            Par Q5, Par Q4, Par Q3, Par Q2, Par Q1
+            Filters:
+            State
+            Level of detail:
+            Name
+            Color:
+            Tier Name</p>
+    </li>
+    <li>
+      <h5>Dimensions</h5>
+      <ul>
+        <li>Name has 168 members on this sheet. Members: California State University, Chico; Citrus Community College; Copper Mountain College; Los Angeles Community College District; San Joaquin Valley College; ...
+              </li>
+              <br>
+        <li>Tier Name has 12 members on this sheet.Members: Highly selective private; Selective private; Selective public; Two-year (public and private not-for-profit); Two-year for-profit; ...
+              </li>
+      </ul>
+  </li>
+  <li>
+        <h5>Analysis</h5>
+        <p>Analysis the relationship between parent income and kids income in the college of California</p>
+  </li>
+      <li>
+            <h5>Measures</h5>
+          <p>Sum of K Q1 ranges from 0.0727 to 0.2997 on this sheet.           Sum of K Q2 ranges from 0.0395 to 0.3744 on this sheet.</p>
+          <p>Sum of K Q3 ranges from 0.0593 to 0.3259 on this sheet.           Sum of K Q4 ranges from 0.0830 to 0.2934 on this sheet.</p>
+          <p>Sum of K Q5 ranges from 0.0278 to 0.7196 on this sheet.           Sum of Par Q1 ranges from 0.0321 to 0.4607 on this sheet.</p>
+          <p>Sum of Par Q2 ranges from 0.0527 to 0.3311 on this sheet.         Sum of Par Q3 ranges from 0.0862 to 0.2701 on this sheet.</p>
+          <p>Sum of Par Q4 ranges from 0.0505 to 0.3564 on this sheet.         Sum of Par Q5 ranges from 0.0214 to 0.6900 on this sheet.</p>
+
+      </li>
+    </ul>
+
+  </body>
+</html>
