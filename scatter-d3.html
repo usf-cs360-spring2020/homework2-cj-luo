@@ -52,14 +52,42 @@ body{
   margin: auto
 }
 
+
 </style>
   </head>
   <body>
     <link href="https://fonts.googleapis.com/css?family=Galada&display=swap" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous"> -->
     <h1 style="font-family: 'Galada', cursive;">Parent income vs kids income in CA</h1>
-    <br>
-    <br>
+    <!-- <br> -->
+    <!-- <br> -->
+    <h5>Legend info</h5>
 
+
+      <div class="row">
+        <div class="col">
+          <ul>
+            <li>1 = Ivy Plus</li>
+            <li>2 = Other elite schools (public and private)</li>
+            <li>3 = Highly selective public</li>
+            <li>4 = Highly selective private</li>
+            <li>5 = Selective public</li>
+            <li>  6 = Selective private</li>
+          </ul>
+        </div>
+        <div class="col">
+          <ul>
+            <li>7 = Nonselective 4-year public</li>
+            <li>8 = Nonselective 4-year private not-for-profit</li>
+            <li>9 = Two-year (public and private not-for-profit)</li>
+            <li>10 = Four-year for-profit</li>
+            <li>11 = Two-year for-profit</li>
+            <li>12 = Less than two year schools of any type</li>
+          </ul>
+        </div>
+
+      </div>
+      <br>
     <svg></svg>
     <script src="//d3js.org/d3.v4.min.js"></script>
 
@@ -84,6 +112,7 @@ body{
         .ticks(4);
 
     let color = d3.scaleOrdinal(d3.schemeCategory10);
+    //console.log(color.domain());
 
     d3.tsv("new.csv", function(error, data) {
       if (error) throw error;
@@ -108,7 +137,9 @@ body{
           let traitsY = d3.keys(data[0]).filter(function(d) { return d == "Sum of K Q1" || d =="Sum of K Q2" || d=="Sum of K Q3" || d=="Sum of K Q4" || d=="Sum of K Q5"  ; });
           console.log("traitsY");
           console.log(traitsY);
-
+          traitsY = traitsY.reverse();
+          console.log("traitsY reverse:");
+          console.log(traitsY);
 
           traitsX.forEach(function(trait) {
             domainByTraitX[trait] = d3.extent(data, function(d) { return d[trait]; });
@@ -165,7 +196,7 @@ body{
       // Titles for the diagonal.
       cell.filter(function(d) { return d.j===0; }).append("text")
           .attr("x", padding)
-          .attr("y", -padding)
+          .attr("y", -padding+40)
           .attr("dy", ".71em")
           .text(function(d) { return d.x; });
 
@@ -176,19 +207,29 @@ body{
           .text(function(d) { return d.y; });
 
       cell.call(brush);
-
+      console.log(color.domain());
       var legend = svg.selectAll(".legend")
-                  .data(color.domain())
+                  .data(color.domain().reverse())
                   .enter().append("g")
                   .attr("class", "legend")
-                  .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+                  .attr("transform", function(d, i) { return "translate("+i*6 + "0)"; });
 
-          legend.append("text")
-              .attr("x", width - 100)
-              .attr("y", 30)
-              .attr("dy", ".35em")
-              .style("text-anchor", "end")
-              .text(function(d) { return d.Tier; });
+      svg.selectAll(".legend")
+          .append("circle")
+          .attr("r",7)
+          .attr("cx", 20)
+          .style("fill", function(d){return color(d)})
+          .attr("cy",-10);
+
+
+      legend.append("text")
+          .attr("x", 40)
+          .attr("y", -10)
+          .attr("dy", ".35em")
+          .style("text-anchor", "end")
+          .text(function(d){return d;});
+
+
 
       function plot(p) {
         let cell = d3.select(this);
@@ -278,7 +319,13 @@ body{
   </li>
   <li>
         <h5>Analysis</h5>
-        <p>Analysis the relationship between parent income and kids income in the college of California</p>
+        <p>Analysis the relationship between parent income and kids income in the college of California. We can easily see the Par Q5 and KQ5, Par Q3 and KQ3, Par Q2 and KQ2,
+          Par Q1 and KQ1 has positive linear relationship,when the parent's have high income, kids will corresponding have high income. Instead, ParQ5 and (KQ1, KQ2, KQ3), KQ5 and
+          (KQ5, KQ4,KQ3) have negetive linear relationship.
+        </p>
+        <p>Also, you could see that lvy college(in this case is stanford University) is the top college which student have higer income and their parent's also have higher income.
+          Rather, the college which is not selectively or enroll less than two years contains more students which are have low income and from family with lower income.
+        </p>
   </li>
       <li>
             <h5>Measures</h5>
